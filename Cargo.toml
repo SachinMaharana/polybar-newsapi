@@ -9,3 +9,5 @@ edition = "2018"
 [dependencies]
 ureq = { version = "*", features = ["json", "charset"] }
 serde_json = "1.0"
+dotenv = "0.15.0"
+anyhow = "1.0"

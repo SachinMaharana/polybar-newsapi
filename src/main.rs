@@ -1,38 +1,26 @@
+use anyhow::Result;
+use dotenv::dotenv;
+use std::env;
 use std::fs::File;
 use std::io;
 use std::io::Write;
-use std::process;
+use ureq;
 
-fn main() {
-    let api_key: &str = "";
-    let saved_path: &str = "/home/sachin/.config/polybar/poly/current_url.txt";
+fn main() -> Result<()> {
+    dotenv().ok();
 
-    let request_url = request_url_builder(api_key);
-    let resp = make_request(request_url);
+    let api_key = env::var("API_KEY")?;
+    let saved_path = env::var("SAVE_PATH")?;
 
-    match resp {
-        Ok(r) => {
-            let source_name = &r["articles"][0]["source"]["name"].to_string();
-            let title = &r["articles"][0]["title"].to_string();
-            let url = &r["articles"][0]["url"].to_string();
+    let request_url = request_url_builder(api_key.as_str());
+    let response = make_request(request_url)?;
 
-            let mut f = File::create(saved_path).unwrap_or_else(|e| {
-                println!("{}", e);
-                process::exit(1);
-            });
+    let (source_name, title, url) = get_data(response);
 
-            f.write_all(url.as_bytes()).unwrap_or_else(|e| {
-                println!("{}", e);
-                process::exit(1);
-            });
-
-            println!("{}: {}", source_name.trim_matches('"'), title.trim_matches('"'));
-        }
-        Err(e) => {
-            println!("Error: {}", e);
-            process::exit(1);
-        }
-    }
+    save_url(saved_path,url)?;
+    output_text(source_name, title);
+    
+    Ok(())
 }
 
 fn request_url_builder(api_key: &str) -> String {
@@ -43,6 +31,27 @@ fn request_url_builder(api_key: &str) -> String {
 }
 
 fn make_request(url: String) -> Result<ureq::SerdeValue, io::Error> {
-    let resp = ureq::get(&url).call().into_json();
-    resp
+    let resp = ureq::get(&url).call().into_json()?;
+    Ok(resp)
+}
+
+fn get_data(data: ureq::SerdeValue) -> (String, String, String)  {
+    let source_name = data["articles"][0]["source"]["name"].to_string();
+    let title = data["articles"][0]["title"].to_string();
+    let url = data["articles"][0]["url"].to_string();
+    (source_name, title, url)
+}
+
+fn save_url(saved_path:String, url:String) -> Result<()> {
+    let mut f = File::create(saved_path)?;
+    f.write_all(url.as_bytes())?;
+    Ok(())
+}
+
+fn output_text(source_name: String, title: String) {
+    println!(
+        "{}: {}",
+        source_name.trim_matches('"'),
+        title.trim_matches('"')
+    );
 }
