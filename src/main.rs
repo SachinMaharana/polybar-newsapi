@@ -5,6 +5,8 @@ use std::fs::File;
 use std::io;
 use std::io::Write;
 use ureq;
+use rand::distributions::{Distribution, Uniform};
+
 
 fn main() -> Result<()> {
     dotenv().ok();
@@ -15,17 +17,26 @@ fn main() -> Result<()> {
     let request_url = request_url_builder(api_key.as_str());
     let response = make_request(request_url)?;
 
+
     let (source_name, title, url) = get_data(response);
 
-    save_url(saved_path,url)?;
+    save_url(saved_path, url)?;
     output_text(source_name, title);
-    
+
+
     Ok(())
+}
+
+fn generate_random() -> usize {
+    let step = Uniform::new(0, 20);
+    let mut rng = rand::thread_rng();
+    let choice = step.sample(&mut rng);
+    choice
 }
 
 fn request_url_builder(api_key: &str) -> String {
     format!(
-        "https://newsapi.org/v2/top-headlines?apiKey={}&sources=bloomberg",
+        "https://newsapi.org/v2/top-headlines?apiKey={}&country=us",
         api_key
     )
 }
@@ -35,14 +46,15 @@ fn make_request(url: String) -> Result<ureq::SerdeValue, io::Error> {
     Ok(resp)
 }
 
-fn get_data(data: ureq::SerdeValue) -> (String, String, String)  {
-    let source_name = data["articles"][0]["source"]["name"].to_string();
-    let title = data["articles"][0]["title"].to_string();
-    let url = data["articles"][0]["url"].to_string();
+fn get_data(data: ureq::SerdeValue) -> (String, String, String) {
+    let random_article = generate_random();
+    let source_name = data["articles"][random_article]["source"]["name"].to_string();
+    let title = data["articles"][random_article]["title"].to_string();
+    let url = data["articles"][random_article]["url"].to_string();
     (source_name, title, url)
 }
 
-fn save_url(saved_path:String, url:String) -> Result<()> {
+fn save_url(saved_path: String, url: String) -> Result<()> {
     let mut f = File::create(saved_path)?;
     f.write_all(url.as_bytes())?;
     Ok(())
